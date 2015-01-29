@@ -1,4 +1,5 @@
-﻿using System;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using FluentAssertions;
 using NUnit.Framework;
@@ -139,8 +140,9 @@ namespace TicTacToeKata
 
 	public class TicTacToeGame
 	{
-		private readonly Player?[,] _board = new Player?[3, 3];
-		private int _moves = 0;
+	    private const int BoardDim = 3;
+
+		private readonly Player?[,] _board = new Player?[BoardDim, BoardDim];
 
 		private Player? _lastMoveBy;
 
@@ -163,73 +165,85 @@ namespace TicTacToeKata
 
 			_board[x, y] = player;
 			_lastMoveBy = player;
-			_moves++;
 		}
 
-		private bool IsDiagonalComplete()
-		{
-			var p = _board[1, 1];
+	    private static IEnumerable<T> CreateSequence<T>(Func<int, T> select)
+	    {
+	        return Enumerable.Range(0, BoardDim).Select(select);
+	    }
 
-			if (p.HasValue)
-			{
-				var diag1 = new[] {_board[0, 0], _board[1, 1], _board[2, 2]};
-				var diag2 = new[] {_board[2, 0], _board[1, 1], _board[0, 2]};
-				return diag1.All(it => it.HasValue && it.Value == p.Value) ||
-				       diag2.All(it => it.HasValue && it.Value == p.Value);
-			}
+	    private IEnumerable<Player?> CreateDiagonal()
+	    {
+	        return CreateSequence(i => _board[i, i]);
+	    }
 
-			return false;
-		}
+	    private IEnumerable<Player?> CreateCrossDiagonal()
+	    {
+            return CreateSequence(i => _board[i, BoardDim - i - 1]);
+	    }
 
-		public bool IsComplete
-		{
-			get
-			{
-				Player? p;
-				for (int y = 0; y < _board.GetLength(1); y++)
-				{
-					p = _board[0, y];
-					bool rowComplete = true;
-					for (int x = 1; x < _board.GetLength(0); x++)
-					{
-						rowComplete &= p != null && _board[x, y] != null && _board[x, y] == p;
-					}
-					if (rowComplete)
-					{
-						return true;
-					}
-				}
+	    private IEnumerable<Player?> CreateRow(int r)
+	    {
+            return CreateSequence(c => _board[r, c]);
+	    }
 
-				for (int x = 0; x <  _board.GetLength(0); x++)
-				{
-					p = _board[x, 0];
-					bool columnComplete = true;
-					for (int y = 1; y < _board.GetLength(1); y++)
-					{
-						columnComplete &= p != null && _board[x, y] != null && _board[x, y] == p;
-					}
-					if (columnComplete)
-					{
-						return true;
-					}
-				}
-				
+        private IEnumerable<Player?> CreateColumn(int c)
+        {
+            return CreateSequence(r => _board[r, c]);
+        }
 
-				if (IsDiagonalComplete())
-				{
-					return true;
-				}
+	    private IEnumerable<IEnumerable<Player?>> CreateRows()
+	    {
+	        return CreateSequence(CreateRow);
+	    }
 
+        private IEnumerable<IEnumerable<Player?>> CreateColumns()
+        {
+            return CreateSequence(CreateColumn);
+        }
 
+	    private IEnumerable<IEnumerable<Player?>> CreateSequences()
+	    {
+	        return CreateRows().Concat(CreateColumns()).Concat(CreateDiagonals());
+	    }
 
-				if (_moves >= _board.GetLength(0) * _board.GetLength(1))
-				{
-					return true;
-				}
+	    private IEnumerable<IEnumerable<Player?>> CreateDiagonals()
+	    {
+	        yield return CreateDiagonal();
+	        yield return CreateCrossDiagonal();
+	    }
 
-				
-				return false;
-			}
-		}
+	    private IEnumerable<Player?> GetBoardSequence()
+	    {
+	        for (int x = 0; x < _board.GetLength(0); x++)
+	        {
+	            for (int y = 0; y < _board.GetLength(1); y++)
+	            {
+	                yield return _board[x, y];
+	            }
+	        }
+	    }
+
+	    private bool IsBoardFull
+	    {
+	        get
+	        {
+	            return GetBoardSequence().All(it => it.HasValue);
+	        }
+	    }
+
+	    public bool IsComplete
+	    {
+	        get
+	        {
+	            return IsBoardFull || CreateSequences().Any(it => IsCompleteSequence(it.ToList()));
+	        }
+	    }
+
+	    private static bool IsCompleteSequence(IList<Player?> seq)
+	    {
+	        var fst = seq.First();
+	        return fst.HasValue && seq.All(it => it.HasValue && fst.Value == it.Value);
+	    }
 	}
 }
